@@ -5,6 +5,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
 import datetime
 from telegram import BotCommand
+from telegram.error import Conflict
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -147,6 +148,16 @@ async def daily_briefing_job(context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.warning(f"Failed to send briefing to {chat_id}: {e}")
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log errors caused by updates and handle conflicts cleanly."""
+    if isinstance(context.error, Conflict):
+        logger.warning(
+            "Conflict detected: Another bot instance is polling getUpdates with the same token. "
+            "Ensure only ONE instance is running (e.g. stop local systemd service or duplicate cloud instance)."
+        )
+    else:
+        logger.error("Exception while handling an update:", exc_info=context.error)
+
 def main():
     if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "your_telegram_bot_token_here":
         logger.error(
@@ -221,6 +232,9 @@ def main():
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file_attachment))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct_message))
 
+    # Register error handler
+    app.add_error_handler(error_handler)
+
     # Schedule Daily Threat Briefing at 09:00 UTC (16:00 Local)
     if app.job_queue:
         app.job_queue.run_daily(
@@ -234,7 +248,7 @@ def main():
     logger.info("Keep-alive health server running on port %s", os.environ.get("PORT", 8080))
 
     logger.info("Bot is active and polling for updates! Press Ctrl+C to stop.")
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
