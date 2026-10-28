@@ -1,0 +1,15 @@
+# Environment secrets (NEVER commit this!)
+.env
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
